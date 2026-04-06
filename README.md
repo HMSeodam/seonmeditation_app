@@ -3,7 +3,7 @@
 **선명상 수행 프로그램** v2.0
 
 <p>
-  <a href="https://hmseodam.github.io/seonmeditation\_app" target="\_blank">
+  <a href="https://hmseodam.github.io/seonmeditation_app" target="\_blank">
     <img src="https://img.shields.io/badge/%E2%96%B6%20%EB%B0%94%EB%A1%9C%20%EC%8B%A4%ED%96%89%ED%95%98%EA%B8%B0-5c3d1e?style=for-the-badge" alt="바로 실행하기" height="36">
   </a>
 </p>
