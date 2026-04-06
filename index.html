@@ -15,20 +15,14 @@
 -->
 <script>
 const CONFIG = {
-  // GitHub Personal Access Token (repo: write 권한 필요)
-  // 비공개 저장소 사용을 강력 권장합니다
-  GITHUB_TOKEN:   '',          // 예: 'ghp_xxxxxxxxxxxxxxxxxxxx'
+  // Cloudflare Worker URL (민감 정보는 모두 Worker에 보관)
+  WORKER_URL:    'https://seonmeditation-worker.yeonwu87.workers.dev',
 
-  // 저장소 경로 (owner/repo 형식)
-  GITHUB_REPO:    '',          // 예: 'professor/zen-meditation'
-
-  GITHUB_BRANCH:  'main',
-  DATA_PATH:      'journal',   // 수행 일지 저장 폴더
-  ROSTER_PATH:    'roster',    // 명부 저장 폴더
-  BOARD_PATH:     'board',     // 게시판 저장 폴더
-
-  // 관리자 비밀번호 (배포 전 반드시 변경!)
-  ADMIN_PASSWORD: 'admin1234',
+  GITHUB_BRANCH: 'main',
+  DATA_PATH:     'journal',   // 수행 일지 저장 폴더
+  ROSTER_PATH:   'roster',    // 명부 저장 폴더
+  BOARD_PATH:    'board',     // 게시판 저장 폴더
+  // GITHUB_TOKEN, GITHUB_REPO, ADMIN_PASSWORD → Worker Secrets으로 이동
 };
 </script>
 
@@ -741,9 +735,10 @@ const AM = {
 //  Gemini 모델 폴백 목록
 // ════════════════════════════════════════════════
 const MODELS = [
-  'gemini-2.5-flash-preview-05-20',
   'gemini-2.5-flash',
-  'gemini-2.0-flash',
+  'gemini-3-flash-preview',
+  'gemini-3.1-flash-lite-preview',
+  'gemini-2.5-flash-lite',
 ];
 
 // ════════════════════════════════════════════════
@@ -828,20 +823,23 @@ function goBack() {
 }
 
 // ════════════════════════════════════════════════
-//  GitHub API
+//  GitHub API (Cloudflare Worker 경유)
 // ════════════════════════════════════════════════
-function ghHeaders() {
-  return {
-    'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
-    'Content-Type': 'application/json',
-    'Accept': 'application/vnd.github.v3+json'
-  };
+async function checkAdminPin(pin) {
+  try {
+    const res = await fetch(`${CONFIG.WORKER_URL}?action=checkAdmin`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({password: pin})
+    });
+    const j = await res.json();
+    return j.ok === true;
+  } catch { return false; }
 }
 async function ghList(prefix) {
-  if (!CONFIG.GITHUB_TOKEN || !CONFIG.GITHUB_REPO) return localList(prefix);
   try {
-    const url = `https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${CONFIG.DATA_PATH}`;
-    const res = await fetch(url, {headers: ghHeaders()});
+    const url = `${CONFIG.WORKER_URL}?path=${CONFIG.DATA_PATH}`;
+    const res = await fetch(url);
     if (!res.ok) return localList(prefix);
     const files = await res.json();
     if (!Array.isArray(files)) return localList(prefix);
@@ -849,10 +847,9 @@ async function ghList(prefix) {
   } catch { return localList(prefix); }
 }
 async function ghGet(filename) {
-  if (!CONFIG.GITHUB_TOKEN || !CONFIG.GITHUB_REPO) return localGet(filename);
   try {
-    const url = `https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${CONFIG.DATA_PATH}/${filename}`;
-    const res = await fetch(url, {headers: ghHeaders()});
+    const url = `${CONFIG.WORKER_URL}?path=${CONFIG.DATA_PATH}/${filename}`;
+    const res = await fetch(url);
     if (!res.ok) return null;
     const j = await res.json();
     const txt = decodeURIComponent(escape(atob(j.content.replace(/\n/g,''))));
@@ -860,23 +857,23 @@ async function ghGet(filename) {
   } catch { return null; }
 }
 async function ghSave(filename, data) {
-  if (!CONFIG.GITHUB_TOKEN || !CONFIG.GITHUB_REPO) { localSave(filename, data); return {ok: true}; }
   try {
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
-    const url = `https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${CONFIG.DATA_PATH}/${filename}`;
+    const url = `${CONFIG.WORKER_URL}?path=${CONFIG.DATA_PATH}/${filename}`;
     const res = await fetch(url, {
-      method: 'PUT', headers: ghHeaders(),
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({message: `Record ${filename}`, content, branch: CONFIG.GITHUB_BRANCH})
     });
     return res.ok ? {ok: true} : {ok: false, err: await res.text()};
   } catch(e) { return {ok: false, err: e.message}; }
 }
 async function ghDelete(filename, sha) {
-  if (!CONFIG.GITHUB_TOKEN || !CONFIG.GITHUB_REPO) { localDelete(filename); return {ok: true}; }
   try {
-    const url = `https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${CONFIG.DATA_PATH}/${filename}`;
+    const url = `${CONFIG.WORKER_URL}?path=${CONFIG.DATA_PATH}/${filename}`;
     const res = await fetch(url, {
-      method: 'DELETE', headers: ghHeaders(),
+      method: 'DELETE',
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({message: `Delete ${filename}`, sha, branch: CONFIG.GITHUB_BRANCH})
     });
     return res.ok ? {ok: true} : {ok: false};
@@ -1683,14 +1680,12 @@ async function doRosterSave() {
 
 async function ghRosterSave(filename, data) {
   const path = (CONFIG.ROSTER_PATH || 'roster');
-  if (!CONFIG.GITHUB_TOKEN || !CONFIG.GITHUB_REPO) {
-    localSave('roster_' + filename, data); return {ok: true};
-  }
   try {
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
-    const url = 'https://api.github.com/repos/' + CONFIG.GITHUB_REPO + '/contents/' + path + '/' + filename;
+    const url = `${CONFIG.WORKER_URL}?path=${path}/${filename}`;
     const res = await fetch(url, {
-      method: 'PUT', headers: ghHeaders(),
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({message: 'Roster ' + filename, content, branch: CONFIG.GITHUB_BRANCH})
     });
     return res.ok ? {ok: true} : {ok: false, err: await res.text()};
@@ -1704,12 +1699,17 @@ function showAdmin() { goTo('s-admin'); }
 
 async function adminLogin() {
   const pw = document.getElementById('adminPw').value;
-  if (pw === CONFIG.ADMIN_PASSWORD) {
-    document.getElementById('adminLogin').classList.add('hidden');
-    document.getElementById('adminPanel').classList.remove('hidden');
-    loadAllRecords();
-  } else {
-    document.getElementById('adminErr').textContent = '비밀번호가 올바르지 않습니다.';
+  try {
+    const ok = await checkAdminPin(pw);
+    if (ok) {
+      document.getElementById('adminLogin').classList.add('hidden');
+      document.getElementById('adminPanel').classList.remove('hidden');
+      loadAllRecords();
+    } else {
+      document.getElementById('adminErr').textContent = '비밀번호가 올바르지 않습니다.';
+    }
+  } catch {
+    document.getElementById('adminErr').textContent = '서버 연결 오류';
   }
 }
 
@@ -1789,8 +1789,8 @@ async function loadAdminRoster() {
   if (!el) return;
   try {
     const path = CONFIG.ROSTER_PATH || 'roster';
-    const url = 'https://api.github.com/repos/' + CONFIG.GITHUB_REPO + '/contents/' + path;
-    const res = await fetch(url, {headers: ghHeaders()});
+    const url = `${CONFIG.WORKER_URL}?path=${path}`;
+    const res = await fetch(url);
     if (!res.ok) { el.innerHTML = '<div class="norec">명부 데이터 없음</div>'; return; }
     const files = await res.json();
     if (!Array.isArray(files) || !files.length) { el.innerHTML = '<div class="norec">등록된 수강생이 없습니다</div>'; return; }
@@ -1813,8 +1813,8 @@ async function loadAdminRoster() {
 
 async function ghGet2(filename, path) {
   try {
-    const url = 'https://api.github.com/repos/' + CONFIG.GITHUB_REPO + '/contents/' + path + '/' + filename;
-    const res = await fetch(url, {headers: ghHeaders()});
+    const url = `${CONFIG.WORKER_URL}?path=${path}/${filename}`;
+    const res = await fetch(url);
     if (!res.ok) return null;
     const j = await res.json();
     const txt = decodeURIComponent(escape(atob(j.content.replace(/\n/g,''))));
@@ -1825,8 +1825,8 @@ async function ghGet2(filename, path) {
 async function adminDownloadRoster() {
   const path = CONFIG.ROSTER_PATH || 'roster';
   try {
-    const url = 'https://api.github.com/repos/' + CONFIG.GITHUB_REPO + '/contents/' + path;
-    const res = await fetch(url, {headers: ghHeaders()});
+    const url = `${CONFIG.WORKER_URL}?path=${path}`;
+    const res = await fetch(url);
     if (!res.ok) { alert('명부 데이터가 없습니다.'); return; }
     const files = await res.json();
     if (!Array.isArray(files) || !files.length) { alert('등록된 수강생이 없습니다.'); return; }
@@ -2075,15 +2075,9 @@ function _boardFilePath() {
 async function _loadBoardData() {
   const loadEl = document.getElementById('boardLoading');
   if (loadEl) loadEl.style.display = 'flex';
-  const url = `https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${_boardFilePath()}`;
+  const url = `${CONFIG.WORKER_URL}?path=${_boardFilePath()}`;
   try {
-    const res = await fetch(url, {
-      headers: {
-        'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'Cache-Control': 'no-cache'
-      }
-    });
+    const res = await fetch(url);
     if (res.status === 404) {
       _BD.data = { posts: [], nextId: 1 };
       _BD.sha = null;
@@ -2102,7 +2096,7 @@ async function _loadBoardData() {
 
 // ── GitHub에 게시판 데이터 저장 ──
 async function _saveBoardData() {
-  const url = `https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${_boardFilePath()}`;
+  const url = `${CONFIG.WORKER_URL}?path=${_boardFilePath()}`;
   const body = {
     message: 'board: update',
     content: btoa(unescape(encodeURIComponent(JSON.stringify(_BD.data)))),
@@ -2111,11 +2105,7 @@ async function _saveBoardData() {
   if (_BD.sha) body.sha = _BD.sha;
   const res = await fetch(url, {
     method: 'PUT',
-    headers: {
-      'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/vnd.github.v3+json'
-    },
+    headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(body)
   });
   if (res.ok) {
@@ -2271,7 +2261,7 @@ async function promptDeletePost() {
   if (pin === null) return;
 
   // 관리자 비밀번호
-  if (pin === CONFIG.ADMIN_PASSWORD) {
+  if (await checkAdminPin(pin)) {
     await _doDeletePost(); return;
   }
   // 작성자 비밀번호 검증
@@ -2337,7 +2327,7 @@ async function submitComment() {
 
   if (isAdmin) {
     // 관리자: 관리자 비밀번호 검증
-    if (pin !== CONFIG.ADMIN_PASSWORD) {
+    if (!(await checkAdminPin(pin))) {
       errEl.textContent = '관리자 비밀번호가 일치하지 않습니다.'; return;
     }
   } else {
@@ -2385,7 +2375,7 @@ async function promptDeleteComment(commentId) {
   if (pin === null) return;
 
   // 관리자 비밀번호 → 모든 댓글 삭제 가능
-  if (pin === CONFIG.ADMIN_PASSWORD) {
+  if (await checkAdminPin(pin)) {
     await _doDeleteComment(commentId); return;
   }
   // 관리자 댓글 → 관리자 비밀번호로만 삭제 가능
