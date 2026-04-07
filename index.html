@@ -343,10 +343,11 @@ label{font-size:.82rem;color:var(--muted);margin-bottom:.35rem;display:block}
 .comment-empty{text-align:center;padding:.8rem 0;font-size:.8rem;color:var(--muted)}
 .comment-form{background:var(--paper2);border-radius:6px;padding:.85rem;margin-top:1rem}
 .comment-form-hd{font-size:.72rem;color:var(--muted);letter-spacing:.06em;margin-bottom:.55rem}
-.comment-row{display:flex;gap:.4rem;margin-bottom:.45rem}
-.comment-row input{flex:1;border:1px solid var(--border);border-radius:4px;padding:.4rem .6rem;font-size:.84rem;background:#fff;font-family:inherit;min-width:0}
+.comment-row{display:flex;gap:.4rem;margin-bottom:.45rem;width:100%;box-sizing:border-box}
+.comment-row input{border:1px solid var(--border);border-radius:4px;padding:.4rem .6rem;font-size:.84rem;background:#fff;font-family:inherit;min-width:0;box-sizing:border-box}
 .comment-row input:focus{outline:none;border-color:var(--gold3)}
-.comment-pin{width:85px;flex:none!important}
+#cAuthor{flex:2}
+.comment-pin{flex:1;max-width:130px}
 .comment-textarea{width:100%;border:1px solid var(--border);border-radius:4px;padding:.4rem .6rem;font-size:.85rem;background:#fff;font-family:inherit;resize:none;min-height:68px;box-sizing:border-box;margin-bottom:.4rem;line-height:1.6}
 .comment-textarea:focus{outline:none;border-color:var(--gold3)}
 .comment-hint{font-size:.62rem;color:var(--muted);line-height:1.65;margin-bottom:.35rem}
@@ -2084,7 +2085,7 @@ async function _loadBoardData() {
     } else if (res.ok) {
       const j = await res.json();
       _BD.sha = j.sha;
-      _BD.data = JSON.parse(atob(j.content.replace(/\n/g, '')));
+      _BD.data = JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g, '')))));
     } else {
       if (!_BD.data) _BD.data = { posts: [], nextId: 1 };
     }
