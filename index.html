@@ -732,21 +732,79 @@ const KOANS = JSON.parse(document.getElementById('koanDB').textContent);
 // ════════════════════════════════════════════════
 //  병통 메타
 // ════════════════════════════════════════════════
+// ────────────────────────────────────────────────
+//  병통(病痛) 메타 — 8종 분류
+//  출전: 大慧語錄·蒙山語錄·碧巖錄·무문관序·임제록
+//  db_tag : KOANS.breaks_attachment 값 중 역공안 후보 태그
+// ────────────────────────────────────────────────
 const AM = {
-  mu:      {lbl:'落空病',       col:'var(--mu)',  ctr:'yu'},
-  yu:      {lbl:'執有病',       col:'var(--yu)',  ctr:'mu'},
-  both:    {lbl:'亦有亦無見',   col:'var(--both)',ctr:'ntr'},
-  neither: {lbl:'非有非無戲論', col:'var(--ntr)', ctr:'both'},
+  // ① 무(無)에 떨어짐 — 虛空에 앉아 어떤 것도 없다 함
+  nakgong:  {
+    lbl:'落空病 (낙공병)',
+    col:'var(--mu)',
+    desc:'무(無)에 떨어져 허공에 앉음. 아무것도 없다는 허무에 집착.',
+    db_tag:'yu',   // 有·日常·작동하는 것으로 부숨
+  },
+  // ② 유(有)에 집착 — 불성·경계·사물에 걸림
+  jiphyu:   {
+    lbl:'執有病 (집유병)',
+    col:'var(--yu)',
+    desc:'있음(有)에 집착하여 불성·깨달음을 하나의 사물처럼 쥐려 함.',
+    db_tag:'mu',   // 無·비워냄으로 부숨
+  },
+  // ③ 야호선 — 인과를 무시하거나 空을 오해한 자유 (百丈野狐)
+  yahoson:  {
+    lbl:'野狐禪 (야호선)',
+    col:'#a0522d',
+    desc:'인과를 부정하거나 공(空)을 잘못 파악하여 자유롭다 착각. 不落因果의 오류.',
+    db_tag:'neither',  // 인과의 엄격함·직격 현실로 부숨
+  },
+  // ④ 묵조병 — 침묵·고요·선정에 집착 (大慧의 宏智 비판)
+  mukjo:    {
+    lbl:'默照病 (묵조병)',
+    col:'#5f7a8a',
+    desc:'침묵·고요·선정(定)에 집착. 無記空에 앉아 活句 없음. 枯木死灰 경향.',
+    db_tag:'yu',   // 활동·일상·소리로 부숨
+  },
+  // ⑤ 정해병 — 지식·교리·도리로 이해하려는 분별 (大慧語錄 핵심 비판)
+  jeonghae: {
+    lbl:'情解病 (정해병)',
+    col:'#7a5c8a',
+    desc:'감정·지식·불교 교리·논리로 화두를 이해하려는 분별심. 死句로 응함.',
+    db_tag:'both',  // 양변 모두 부수는 공안으로 개념을 무너뜨림
+  },
+  // ⑥ 화타병 — 말 속에 떨어짐, 언어로 표현하려는 집착 (雲門話墮)
+  hwata:    {
+    lbl:'話墮病 (화타병)',
+    col:'#8a6a2a',
+    desc:'말 속에 떨어짐. 언어·문자로 선을 드러내려 함. 말이 곧 病.',
+    db_tag:'mu',   // 無·절단으로 언어 집착 부숨
+  },
+  // ⑦ 역유역무견 — 있다·없다 양변을 동시에 쥐려 함
+  yokmu:    {
+    lbl:'亦有亦無見 (역유역무견)',
+    col:'var(--both)',
+    desc:'유(有)와 무(無)를 동시에 보려는 양변(兩邊) 집착. 중간도 아닌 어정쩡함.',
+    db_tag:'neither', // 유무 모두 떠난 직격으로 부숨
+  },
+  // ⑧ 비유비무희론 — 비유비무(非有非無)의 논리 유희에 빠짐
+  biyumu:   {
+    lbl:'非有非無戲論 (비유비무희론)',
+    col:'var(--ntr)',
+    desc:'있지도 없지도 않다는 중도 논리를 도구로 쓰는 희론(戲論). 말만 정교.',
+    db_tag:'both',  // 유무를 실제로 함께 작동시키는 공안으로 부숨
+  },
 };
 
 // ════════════════════════════════════════════════
 //  Gemini 모델 폴백 목록
 // ════════════════════════════════════════════════
 const MODELS = [
+  'gemini-3.1-flash-live',
+  'gemini-3.1-flash',
+  'gemini-3.1-flash-lite',
+  'gemini-3-flash',
   'gemini-2.5-flash',
-  'gemini-3-flash-preview',
-  'gemini-3.1-flash-lite-preview',
-  'gemini-2.5-flash-lite',
 ];
 
 // ════════════════════════════════════════════════
@@ -961,13 +1019,16 @@ function parsePipe(raw, fields) {
 // ════════════════════════════════════════════════
 //  시작 / API 키
 // ════════════════════════════════════════════════
-document.getElementById('apiKeyInput').addEventListener('input', async function() {
-  const k = this.value.trim();
+async function handleApiKeyInput() {
+  const el = document.getElementById('apiKeyInput');
+  // paste 직후에는 value가 아직 비어있을 수 있어 한 틱 대기
+  await new Promise(r => setTimeout(r, 0));
+  const k = el.value.trim();
   const st = document.getElementById('keyStatus');
   const btn = document.getElementById('startBtn');
   if (k.length > 10) {
     STATE.apiKey = k;
-    STATE.apiKeyId6 = k.slice(-6);   // 파일명 식별자 (API키 마지막 6자리)
+    STATE.apiKeyId6 = k.slice(-6);
     const h = await sha256(k.slice(-6));
     STATE.userHash = h; STATE.userHashShort = h.slice(0, 8);
     st.textContent = `키 등록됨 (ID: ${STATE.apiKeyId6})`;
@@ -976,7 +1037,11 @@ document.getElementById('apiKeyInput').addEventListener('input', async function(
     STATE.apiKey = ''; STATE.userHash = ''; STATE.userHashShort = ''; STATE.apiKeyId6 = '';
     st.textContent = '키를 입력하세요'; st.className = 'key-status ks-no'; btn.disabled = true;
   }
-});
+}
+// input(타이핑), paste(붙여넣기), change(자동완성·포커스 아웃) 모두 처리
+['input','paste','change','keyup'].forEach(ev =>
+  document.getElementById('apiKeyInput').addEventListener(ev, handleApiKeyInput)
+);
 
 async function doStart() {
   STATE.today = getToday();
@@ -1259,14 +1324,27 @@ async function doSubmitFirst() {
     const k = STATE.currentKoan;
     const okStr = k.title + ': ' + k.text_korean;
 
-    // ① 수준 평가
-    const ep = `당신은 한국 간화선의 선지식입니다.
+    // ① 수준 평가 — breakthrough 기준 엄격화
+    const ep = `당신은 한국 간화선의 엄격한 선지식입니다.
 화두: ${k.text_classical} / ${k.text_korean}
 수행자 답변: ${ans}
 
+[평가 원칙]
+간화선의 인가는 活句(살아있는 말)와 死句(죽은 말)를 구별하는 데 달려 있습니다.
+아래 조건 중 하나라도 해당하면 반드시 'attached'로 판정하십시오:
+  A. 화두의 의미를 개념·교리·비유로 설명하는 답변
+  B. 불교 경전·어록 문구를 인용하여 답하는 답변
+  C. "이것은 ~을 뜻한다" "~이기 때문이다" 식의 논증·해석 형식
+  D. 화두 원문을 그대로 반복하거나 단순 패러프레이즈
+  E. 질문에 질문만 돌리되 새로운 살아있는 힘(機用)이 없는 답변
+
+'partial'은 방향은 맞되 여전히 개념의 그림자가 남아있을 때만 사용하십시오.
+'breakthrough'는 개념·논리·인용 없이 즉각적이고 직접적인 기용(機用)을 보일 때만 인가하십시오.
+실제 선지식은 breakthrough를 매우 드물게 줍니다. 확신이 없으면 'partial'로 판정하십시오.
+
 반드시 아래 형식으로만 출력하세요:
 LEVEL::breakthrough 또는 partial 또는 attached
-COMMENT::평가 근거 2문장`;
+COMMENT::선사가 학인에게 직접 건네는 말투로 1~2문장. "A 조건" "해당하므로" 같은 분석·판정 이유 설명 절대 금지. 학인의 어디가 막혔는지를 선어록 투로 바로 찌를 것.`;
     const ev = parsePipe(await gCall(ep, 0.2), ['LEVEL','COMMENT']);
     const level = (ev.level || 'attached').trim().toLowerCase();
 
@@ -1276,9 +1354,11 @@ COMMENT::평가 근거 2문장`;
 화두: ${okStr}
 수행자 답변: ${ans}
 이 답변은 화두를 꿰뚫었습니다.
+
+학술 설명·분석 없이 선사가 학인에게 직접 건네는 인가의 말씀을 하십시오.
 반드시 아래 형식으로만 출력하세요:
-INGA::인가의 말씀 1~2문장
-NEXT::다음 단계 화두 방향 한 문장`;
+INGA::인가의 말씀 1~2문장 (선어록 투, 짧고 직접적으로)
+NEXT::다음 참구 방향을 선사가 학인에게 건네는 한 마디`;
       const ir = parsePipe(await gCall(ip, 0.4), ['INGA','NEXT']);
       STATE.ganhwaAIResponse = {level, ...ev, ...ir};
       resultHTML = `<div class="rb-dbox rb-green">
@@ -1296,11 +1376,13 @@ NEXT::다음 단계 화두 방향 한 문장`;
       const dp = `당신은 한국 간화선의 선지식입니다.
 화두: ${okStr}
 수행자 답변: ${ans}
-방향은 맞으나 아직 개념에 기대고 있습니다.
+방향은 맞으나 아직 개념의 그림자가 남아 있습니다.
+
+학술 분석 없이 선사가 학인에게 직접 말하는 투로 응하십시오.
 반드시 아래 형식으로만 출력하세요:
-AFFIRM::무엇이 맞았는지 구체적으로 인정하는 한 문장
-DEEPEN::그 직관을 더 밀고 들어가는 심화 질문 2문장
-HINT::선어록 스타일 짧은 한 마디`;
+AFFIRM::맞는 방향을 선사가 짧게 인정하는 한 마디 (칭찬 아닌 확인)
+DEEPEN::개념의 그림자를 밀어붙이는 직접적인 반문 2문장 (설명 없이)
+HINT::선어록 스타일 짧은 한 마디 (5~15자 이내)`;
       const dr = parsePipe(await gCall(dp, 0.35), ['AFFIRM','DEEPEN','HINT']);
       STATE.ganhwaAIResponse = {level, ...ev, ...dr};
       resultHTML = `<div class="rb-dbox rb-gold">
@@ -1317,32 +1399,53 @@ HINT::선어록 스타일 짧은 한 마디`;
       showSecondAns('partial');
     } else {
       // attached
-      const cp = `화두: ${k.text_classical} / ${k.text_korean}
+      // attached — 8종 병통 분류
+      const cp = `당신은 한국 간화선의 선지식입니다.
+화두: ${k.text_classical} / ${k.text_korean}
 수행자 답변: ${ans}
-아래 형식으로만 출력:
-TYPE::mu 또는 yu 또는 both 또는 neither
-TERM::병통 한자 용어`;
+
+아래 8가지 병통 중 이 답변에 가장 잘 맞는 것 하나를 고르십시오:
+  nakgong  : 落空病 — 무(無)·허공에 떨어짐, 허무에 집착
+  jiphyu   : 執有病 — 있음(有)·불성·깨달음을 사물처럼 쥐려 함
+  yahoson  : 野狐禪 — 인과 부정 또는 공(空)을 오해한 그릇된 자유
+  mukjo    : 默照病 — 침묵·고요·선정에 집착, 無記空에 앉음
+  jeonghae : 情解病 — 교리·논리·도리로 화두를 이해·설명하려 함
+  hwata    : 話墮病 — 말 속에 떨어짐, 언어로 표현하려는 집착
+  yokmu    : 亦有亦無見 — 유와 무를 동시에 쥐려는 양변 집착
+  biyumu   : 非有非無戲論 — 비유비무 논리 유희, 중도를 개념으로 씀
+
+반드시 아래 형식으로만 출력하세요:
+TYPE::위 8가지 키 중 하나
+TERM::해당 병통 한자 명칭`;
       const cls = parsePipe(await gCall(cp, 0.2), ['TYPE','TERM']);
-      const tp = (cls.type || 'yu').replace(/[^a-z]/g, '');
-      const safeType = ['mu','yu','both','neither'].includes(tp) ? tp : 'yu';
-      const m = AM[safeType] || AM.yu;
-      // 역공안
-      const pool = KOANS.filter(x => x.breaks_attachment === (m.ctr||safeType) && x.id !== k.id);
+      const tp = (cls.type || 'jiphyu').replace(/[^a-z]/g, '');
+      const VALID_TYPES = ['nakgong','jiphyu','yahoson','mukjo','jeonghae','hwata','yokmu','biyumu'];
+      const safeType = VALID_TYPES.includes(tp) ? tp : 'jiphyu';
+      const m = AM[safeType] || AM.jiphyu;
+      // 역공안: AM의 db_tag를 사용하여 병통을 직격하는 공안 선택
+      const pool = KOANS.filter(x => x.breaks_attachment === m.db_tag && x.id !== k.id);
       STATE.counterKoan = pool.length ? pool[Math.floor(Math.random()*pool.length)] : KOANS.find(x=>x.id!==k.id);
       const ct = STATE.counterKoan;
       const rp = `당신은 한국 간화선의 선지식입니다.
 원화두: ${okStr}
 수행자 답변: ${ans}
-병통: ${m.lbl}
+병통: ${m.lbl} — ${m.desc}
 역공안: [${ct.title}] ${ct.text_korean}
+
+이 역공안은 수행자의 병통(${m.lbl})을 정면으로 부수기 위해 선택되었습니다.
+역공안의 선택 이유를 드러내지 말고, 선지식의 직접적인 접인(接人)으로 응하십시오.
+
+[출력 원칙]
+- "수행자의 답변은 ~입니다" "~에 해당합니다" 같은 분석·판정문 형식 절대 금지
+- 선사가 학인 앞에서 직접 말하듯 짧고 직격으로
 반드시 아래 형식으로만 출력하세요:
-DIAG::병통 진단 한 문장
-QUES::역공안으로 집착을 직격하는 반문 2문장
-HINT::선어록 스타일 짧은 한 마디`;
+DIAG::선사가 학인의 병통을 단칼에 찌르는 한 마디 (선어록 투, 분석문 금지)
+QUES::역공안으로 병통의 뿌리를 직격하는 반문 2문장 (설명 없이 바로 찌를 것)
+HINT::선어록 스타일 짧은 한 마디 (5~15자 이내)`;
       const rr = parsePipe(await gCall(rp, 0.3), ['DIAG','QUES','HINT']);
       STATE.ganhwaAIResponse = {level, type:safeType, classical_term:cls.term||m.lbl, ...ev, ...rr, counter_koan_id: ct.id};
       resultHTML = `<div class="rb-dbox">
-        <div class="rb-lbl">▪ 병통(病通) 진단</div>
+        <div class="rb-lbl">▪ 병통(病痛) 진단</div>
         <div class="rb-term" style="color:${m.col}">${cls.term||m.lbl}</div>
         <div class="rb-body">${ev.comment || ''}</div>
         <div class="rb-quote">${rr.diag || ''}</div>
