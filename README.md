@@ -3,7 +3,7 @@
 **선명상 수행 프로그램** v2.0
 
 <p>
-  <a href="https://hmseodam.github.io/seonmeditation_app" target="\\\\\\\_blank">
+  <a href="https://hmseodam.github.io/seonmeditation" target="\\\\\\\_blank">
     <img src="https://img.shields.io/badge/%E2%96%B6%20%EB%B0%94%EB%A1%9C%20%EC%8B%A4%ED%96%89%ED%95%98%EA%B8%B0-5c3d1e?style=for-the-badge" alt="바로 실행하기" height="36">
   </a>
 </p>
@@ -45,7 +45,7 @@ Google Gemini AI를 활용한 불교 선명상 수행 기록 프로그램입니�
 
 ## 사용 방법
 
-1. [바로 실행하기](https://hmseodam.github.io/seonmeditation_app) 접속
+1. [바로 실행하기](https://hmseodam.github.io/seonmeditation) 접속
 2. [Google AI Studio](https://aistudio.google.com)에서 Gemini API Key 발급
 3. 시작 화면에서 API Key 입력 후 **수행 시작**
 
