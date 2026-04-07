@@ -519,6 +519,9 @@ label{font-size:.82rem;color:var(--muted);margin-bottom:.35rem;display:block}
     </div>
     <textarea id="ganhwaAns" rows="4" placeholder="생각나는 대로 자유롭게 쓰십시오."></textarea>
     <div class="err" id="ganhwaErr"></div>
+    <div style="margin:.6rem 0;padding:.55rem .75rem;background:#fdf8ee;border-left:3px solid var(--gold3);border-radius:4px;font-size:.75rem;color:var(--muted);line-height:1.7">
+      ⚠️ AI 점검은 보조 도구입니다. 반드시 선사(禪師)를 친견하여 점검받으십시오.
+    </div>
     <div class="btn-row">
       <button class="btn-primary" id="submitBtn" onclick="doSubmitFirst()">入參 입참</button>
       <button class="btn-secondary" onclick="loadRandomKoan()">다른 화두</button>
@@ -550,6 +553,10 @@ label{font-size:.82rem;color:var(--muted);margin-bottom:.35rem;display:block}
   </div>
   <div class="result-box" id="secondResult"></div>
   <div class="locked-msg" id="lockedMsg">— 참구가 마무리되었습니다 —</div>
+  <div id="aiWarningMsg" class="hidden" style="margin:.8rem 0;padding:.6rem .8rem;background:#f7f3e8;border:1px solid var(--gold3);border-radius:6px;font-size:.76rem;color:#5a4a2a;line-height:1.8;text-align:center">
+    ✋ 이 평가는 AI가 생성한 것으로 <strong>실제 인가(印可)가 아닙니다.</strong><br>
+    반드시 <strong>선사(禪師)를 직접 찾아뵙고</strong> 참된 점검을 받으십시오.
+  </div>
 
   <!-- 다음으로 -->
   <div class="btn-row hidden" id="ganhwaNext">
@@ -1416,6 +1423,7 @@ CLOSE::마무리 한 말씀 (1~2문장, 선어록 스타일)`;
     document.getElementById('secondAns').disabled = true;
     document.getElementById('secondSubmitBtn').style.display = 'none';
     document.getElementById('lockedMsg').style.display = 'block';
+    document.getElementById('aiWarningMsg').classList.remove('hidden');
     document.getElementById('ganhwaNext').classList.remove('hidden');
   }
 }
