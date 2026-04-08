@@ -854,7 +854,7 @@ function getToday() {
 }
 function getTimestamp() {
   const d = new Date();
-  return d.toISOString().replace('T',' ').slice(0,19);
+  return new Date(d.getTime() + 9 * 60 * 60 * 1000).toISOString().replace('T',' ').slice(0,19); // KST 기준
 }
 function getFileSuffix() {
   const d = new Date();
